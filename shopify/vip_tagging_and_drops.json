@@ -1,0 +1,377 @@
+{
+    "name": "Shopify VIP Customer Workflow",
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "minutes",
+                "minutesInterval": 15
+              }
+            ]
+          }
+        },
+        "id": "8c0f89e1-7b4e-4c0e-9c2a-5f3e7b9a8c1d",
+        "name": "Watch Shopify Orders",
+        "type": "n8n-nodes-base.cron",
+        "typeVersion": 1,
+        "position": [
+          240,
+          300
+        ]
+      },
+      {
+        "parameters": {
+          "resource": "order",
+          "operation": "getAll",
+          "returnAll": true,
+          "additionalFields": {
+            "status": "any"
+          }
+        },
+        "id": "7d1e82f3-6a5b-4f1c-8d3e-9c4f5a7b2e6d",
+        "name": "Get Paid Orders (History)",
+        "type": "n8n-nodes-base.shopify",
+        "typeVersion": 1,
+        "position": [
+          460,
+          300
+        ],
+        "credentials": {
+          "shopifyApi": {
+            "id": "shopify_credentials",
+            "name": "Shopify Account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "condition1",
+                "leftValue": "={{ $json.financial_status }}",
+                "rightValue": "paid",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        },
+        "id": "9e2f73a4-8b6c-5d4f-a1e2-7c8b9d3e5f4a",
+        "name": "Is Paid Order ?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          680,
+          300
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const orders = $input.all();\nconst customerLTV = {};\n\n// Calculate LTV for each customer\norders.forEach(order => {\n  const customerId = order.json.customer?.id;\n  const orderTotal = parseFloat(order.json.total_price) || 0;\n  \n  if (customerId) {\n    if (!customerLTV[customerId]) {\n      customerLTV[customerId] = {\n        customer_id: customerId,\n        customer_email: order.json.customer?.email,\n        customer_phone: order.json.customer?.phone,\n        ltv: 0,\n        order_count: 0\n      };\n    }\n    customerLTV[customerId].ltv += orderTotal;\n    customerLTV[customerId].order_count += 1;\n  }\n});\n\n// Return array of customer LTV data\nreturn Object.values(customerLTV).map(customer => ({ json: customer }));"
+        },
+        "id": "1a3e5f7b-9c2d-4e6f-8b1a-3d5e7f9b2c4d",
+        "name": "Calculate LTV",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          900,
+          300
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "condition1",
+                "leftValue": "={{ $json.ltv }}",
+                "rightValue": 500,
+                "operator": {
+                  "type": "number",
+                  "operation": "largerEqual"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        },
+        "id": "2b4d6e8a-1c3e-5f7b-9d2a-4e6a8c1d3e5f",
+        "name": "Is VIP (>= $500)?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          1120,
+          300
+        ]
+      },
+      {
+        "parameters": {
+          "url": "https://a.klaviyo.com/api/profiles/",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "klaviyoApi",
+          "options": {
+            "queryParameters": {
+              "parameters": [
+                {
+                  "name": "filter",
+                  "value": "equals(email,\"{{ $json.customer_email }}\")"
+                }
+              ]
+            }
+          }
+        },
+        "id": "3c5e7f9b-2d4a-6e8b-1a3c-5e7b9d2c4a6e",
+        "name": "Find Klaviyo Profile",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1340,
+          240
+        ],
+        "credentials": {
+          "klaviyoApi": {
+            "id": "klaviyo_credentials",
+            "name": "Klaviyo Account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "condition1",
+                "leftValue": "={{ $json.data && $json.data.length > 0 }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        },
+        "id": "4d6a8c2e-3e5b-7f9d-2b4d-6a8c2e5b7f9d",
+        "name": "Profile Exists?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          1560,
+          240
+        ]
+      },
+      {
+        "parameters": {
+          "url": "https://a.klaviyo.com/api/lists/VIP_LIST_ID/relationships/profiles/",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "data",
+                "value": "={{ [{\"type\": \"profile\", \"id\": $json.data[0].id}] }}"
+              }
+            ]
+          },
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "klaviyoApi",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "id": "5e7c9f1d-4f6b-8a2e-3c5e-7c9f1d4f6b8a",
+        "name": "Add/Update in VIP List",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1780,
+          180
+        ],
+        "credentials": {
+          "klaviyoApi": {
+            "id": "klaviyo_credentials",
+            "name": "Klaviyo Account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Compose WhatsApp message for VIP customer\nconst customerEmail = $json.customer_email || 'N/A';\nconst ltv = $json.ltv || 0;\nconst orderCount = $json.order_count || 0;\n\nconst message = `🎉 Congratulations! You've become a VIP customer!\n\n📧 Email: ${customerEmail}\n💰 Lifetime Value: $${ltv.toFixed(2)}\n🛍️ Total Orders: ${orderCount}\n\nThank you for your loyalty! Enjoy exclusive VIP benefits.`;\n\nreturn {\n  json: {\n    ...($json),\n    whatsapp_message: message\n  }\n};"
+        },
+        "id": "6f8d1a3e-5a7c-9e2f-4d6f-8d1a3e5a7c9e",
+        "name": "Compose WhatsApp",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2000,
+          180
+        ]
+      },
+      {
+        "parameters": {
+          "fromPhoneNumberId": "YOUR_WHATSAPP_PHONE_NUMBER_ID",
+          "toPhoneNumber": "={{ $json.customer_phone }}",
+          "message": "={{ $json.whatsapp_message }}",
+          "additionalFields": {}
+        },
+        "id": "7a9c2e5b-6b8d-1f4a-5e7a-9c2e5b6b8d1f",
+        "name": "Send WhatsApp",
+        "type": "n8n-nodes-base.whatsAppBusiness",
+        "typeVersion": 1,
+        "position": [
+          2220,
+          180
+        ],
+        "credentials": {
+          "whatsAppApi": {
+            "id": "whatsapp_credentials",
+            "name": "WhatsApp Business Account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Watch Shopify Orders": {
+        "main": [
+          [
+            {
+              "node": "Get Paid Orders (History)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Paid Orders (History)": {
+        "main": [
+          [
+            {
+              "node": "Is Paid Order ?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is Paid Order ?": {
+        "main": [
+          [
+            {
+              "node": "Calculate LTV",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Calculate LTV": {
+        "main": [
+          [
+            {
+              "node": "Is VIP (>= $500)?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is VIP (>= $500)?": {
+        "main": [
+          [
+            {
+              "node": "Find Klaviyo Profile",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Find Klaviyo Profile": {
+        "main": [
+          [
+            {
+              "node": "Profile Exists?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Profile Exists?": {
+        "main": [
+          [
+            {
+              "node": "Add/Update in VIP List",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Add/Update in VIP List": {
+        "main": [
+          [
+            {
+              "node": "Compose WhatsApp",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Compose WhatsApp": {
+        "main": [
+          [
+            {
+              "node": "Send WhatsApp",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [],
+    "triggerCount": 0,
+    "updatedAt": "2025-01-01T00:00:00.000Z",
+    "versionId": "1"
+  }

@@ -1,0 +1,216 @@
+{
+  "name": "High-AOV Recovery (Concierge)",
+  "nodes": [
+    {
+      "parameters": {
+        "cronExpression": "0 */2 * * *"
+      },
+      "id": "1",
+      "name": "Every 2 Hours",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "resource": "order",
+        "operation": "getAll",
+        "options": {
+          "returnAll": true
+        }
+      },
+      "id": "2",
+      "name": "Get Abandoned Checkouts",
+      "type": "n8n-nodes-base.shopify",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "shopifyApi": "Your Shopify API"
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Filter to simulate 'abandoned' high-AOV: >= $150 and older than 2h\n// If you swap node #2 to an HTTP Request hitting /abandoned_checkouts.json,\n// this function still works (it normalizes common payload shapes).\n\nconst TWO_HOURS = 2 * 60 * 60 * 1000;\nconst now = Date.now();\n\n// Flatten inputs\nlet list = [];\nfor (const i of items) {\n  const j = i.json;\n  if (Array.isArray(j)) list = list.concat(j);\n  else if (Array.isArray(j.abandoned_checkouts)) list = list.concat(j.abandoned_checkouts);\n  else if (Array.isArray(j.checkouts)) list = list.concat(j.checkouts);\n  else if (Array.isArray(j.orders)) list = list.concat(j.orders);\n  else list.push(j);\n}\n\nconst out = [];\nfor (const co of list) {\n  const subtotal = parseFloat(co.subtotal_price || co.total_price || 0);\n  const createdAt = new Date(co.created_at || co.updated_at || Date.now()).getTime();\n  const oldEnough = (now - createdAt) >= TWO_HOURS;\n  if (subtotal >= 150 && oldEnough) {\n    const email = (co.email || co.customer?.email || '').trim();\n    const phone = (co.phone || co.billing_address?.phone || co.customer?.phone || '').trim();\n    const checkoutUrl = co.abandoned_checkout_url || co.checkout_url || '';\n    out.push({ json: { email, phone, subtotal, checkout_url: checkoutUrl } });\n  }\n}\nreturn out;"
+      },
+      "id": "3",
+      "name": "Filter High-AOV (≥ $150)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.phone}}",
+              "operation": "notEmpty"
+            }
+          ]
+        }
+      },
+      "id": "4",
+      "name": "Has WhatsApp Number?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "to",
+              "value": "={{'whatsapp:' + ($json.phone || '').replace(/[^0-9+]/g,'')}}"
+            },
+            {
+              "name": "body",
+              "value": "={{`Hey! Noticed you left items worth $${Number($json.subtotal||0).toFixed(2)}. Need sizing or shipping help?\\nFinish here: ${$json.checkout_url||''}\\nReply 1) Size  2) Shipping  3) Different product`}}"
+            }
+          ]
+        }
+      },
+      "id": "5",
+      "name": "Compose WhatsApp",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "create",
+        "from": "whatsapp:+14155238886",
+        "to": "={{$json.to}}",
+        "message": "={{$json.body}}"
+      },
+      "id": "6",
+      "name": "Send WhatsApp",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1250, 200],
+      "credentials": {
+        "twilioApi": "Your Twilio API"
+      }
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "to",
+              "value": "={{$json.email}}"
+            },
+            {
+              "name": "subject",
+              "value": "={{`Need help finishing your order? ($${Number($json.subtotal||0).toFixed(2)})`}}"
+            },
+            {
+              "name": "text",
+              "value": "={{`Hi! You left items worth $${Number($json.subtotal||0).toFixed(2)} in your cart.\\nFinish here: ${$json.checkout_url||''}\\nReply with: 1) Size  2) Shipping  3) Different product`}}"
+            }
+          ]
+        }
+      },
+      "id": "7",
+      "name": "Compose Email",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "toList": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "text": "={{$json.text}}"
+      },
+      "id": "8",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [1250, 400],
+      "credentials": {
+        "gmailOAuth2Api": "Your Gmail OAuth"
+      }
+    }
+  ],
+  "connections": {
+    "Every 2 Hours": {
+      "main": [
+        [
+          {
+            "node": "Get Abandoned Checkouts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Abandoned Checkouts": {
+      "main": [
+        [
+          {
+            "node": "Filter High-AOV (≥ $150)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter High-AOV (≥ $150)": {
+      "main": [
+        [
+          {
+            "node": "Has WhatsApp Number?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has WhatsApp Number?": {
+      "main": [
+        [
+          {
+            "node": "Compose WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Compose Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

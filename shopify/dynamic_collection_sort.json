@@ -1,0 +1,134 @@
+{
+    "name": "Dynamic Collection Sorting",
+    "nodes": [
+      {
+        "parameters": {
+          "cronExpression": "0 6 * * *"
+        },
+        "id": "1",
+        "name": "Daily Trigger",
+        "type": "n8n-nodes-base.cron",
+        "typeVersion": 1,
+        "position": [250, 300]
+      },
+      {
+        "parameters": {
+          "resource": "order",
+          "operation": "getAll",
+          "additionalFields": {
+            "createdAtMin": "={{$json[\"$now.minusDays(14)\"]}}"
+          }
+        },
+        "id": "2",
+        "name": "Fetch Orders (14d)",
+        "type": "n8n-nodes-base.shopify",
+        "typeVersion": 1,
+        "position": [500, 300],
+        "credentials": {
+          "shopifyApi": "Your Shopify API"
+        }
+      },
+      {
+        "parameters": {
+          "functionCode": "const sales = {};\n\nfor (const order of items) {\n  for (const line of order.json.line_items) {\n    const pid = line.product_id;\n    if (!sales[pid]) sales[pid] = { revenue: 0, qty: 0, title: line.title };\n    sales[pid].revenue += line.price * line.quantity;\n    sales[pid].qty += line.quantity;\n  }\n}\n\nreturn Object.keys(sales).map(pid => ({ json: { product_id: pid, title: sales[pid].title, revenue: sales[pid].revenue, qty: sales[pid].qty }}));"
+        },
+        "id": "3",
+        "name": "Aggregate Product Sales",
+        "type": "n8n-nodes-base.function",
+        "typeVersion": 1,
+        "position": [750, 300]
+      },
+      {
+        "parameters": {
+          "functionCode": "items.sort((a, b) => b.json.revenue - a.json.revenue);\nreturn items;"
+        },
+        "id": "4",
+        "name": "Rank Products",
+        "type": "n8n-nodes-base.function",
+        "typeVersion": 1,
+        "position": [1000, 300]
+      },
+      {
+        "parameters": {
+          "url": "https://yourshop.myshopify.com/admin/api/2023-01/custom_collections/{collection_id}/order.json",
+          "options": {},
+          "method": "PUT",
+          "bodyParametersJson": "={ \"product_ids\": $items(\"Rank Products\").map(i => i.json.product_id) }"
+        },
+        "id": "5",
+        "name": "Update Collection Order",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 1,
+        "position": [1250, 300],
+        "credentials": {
+          "httpBasicAuth": "Shopify Private App"
+        }
+      },
+      {
+        "parameters": {
+          "channel": "#ecommerce",
+          "text": "🔥 Daily Collection Update: \n\n={{$items(\"Rank Products\").slice(0,5).map(i => i.json.title + ' - $' + i.json.revenue).join(\"\\n\")}}"
+        },
+        "id": "6",
+        "name": "Post to Slack",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 1,
+        "position": [1500, 300],
+        "credentials": {
+          "slackApi": "Your Slack API"
+        }
+      }
+    ],
+    "connections": {
+      "Daily Trigger": {
+        "main": [
+          [
+            {
+              "node": "Fetch Orders (14d)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch Orders (14d)": {
+        "main": [
+          [
+            {
+              "node": "Aggregate Product Sales",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Aggregate Product Sales": {
+        "main": [
+          [
+            {
+              "node": "Rank Products",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Rank Products": {
+        "main": [
+          [
+            {
+              "node": "Update Collection Order",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Post to Slack",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    }
+  }
+  

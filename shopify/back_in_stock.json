@@ -1,0 +1,143 @@
+{
+    "name": "Back-in-Stock / Daily Inventory Alert",
+    "nodes": [
+      {
+        "parameters": {
+          "cronExpression": "0 8 * * *"
+        },
+        "id": "1",
+        "name": "Daily Inventory Check",
+        "type": "n8n-nodes-base.cron",
+        "typeVersion": 1,
+        "position": [250, 300]
+      },
+      {
+        "parameters": {
+          "resource": "product",
+          "operation": "getAll",
+          "additionalFields": {
+            "returnAll": true
+          }
+        },
+        "id": "2",
+        "name": "Get All Products",
+        "type": "n8n-nodes-base.shopify",
+        "typeVersion": 1,
+        "position": [480, 300],
+        "credentials": {
+          "shopifyApi": "Your Shopify API"
+        }
+      },
+      {
+        "parameters": {
+          "functionCode": "// --- CONFIG ---\nconst LOW_STOCK_THRESHOLD = 5;         // tweak\nconst SHOP_DOMAIN = \"yourshop.myshopify.com\"; // for links\n\n// Flatten variants and keep only low-stock variants (>0 && <= threshold)\nconst low = [];\nfor (const p of items) {\n  const product = p.json;\n  const handle = product.handle || \"\";\n  const variants = (product.variants || []);\n  for (const v of variants) {\n    const qty = Number(v.inventory_quantity ?? v.inventory_quantity_adjustment ?? 0);\n    if (Number.isFinite(qty) && qty > 0 && qty <= LOW_STOCK_THRESHOLD) {\n      low.push({\n        product_id: product.id,\n        title: product.title,\n        handle,\n        variant_id: v.id,\n        variant_title: v.title,\n        sku: v.sku,\n        qty,\n        product_url: `https://${SHOP_DOMAIN}/products/${handle}?variant=${v.id}`,\n        admin_url: `https://${SHOP_DOMAIN}/admin/products/${product.id}/variants/${v.id}`\n      });\n    }\n  }\n}\nreturn [{ json: { count: low.length, items: low } }];"
+        },
+        "id": "3",
+        "name": "Filter Low Stock Items",
+        "type": "n8n-nodes-base.function",
+        "typeVersion": 1,
+        "position": [730, 300]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "number": [
+              {
+                "value1": "={{$json.count}}",
+                "operation": "larger",
+                "value2": 0
+              }
+            ]
+          }
+        },
+        "id": "4",
+        "name": "Check if Alerts Needed",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 1,
+        "position": [960, 300]
+      },
+      {
+        "parameters": {
+          "functionCode": "const arr = $json.items || [];\nconst header = `⚠️ Inventory Alert (≤ threshold) — ${arr.length} variants`;\nconst lines = arr.slice(0, 25).map(i => `• ${i.title} — ${i.variant_title} (SKU ${i.sku || '—'}) → ${i.qty} left  |  ${i.product_url}`);\nconst footer = arr.length > 25 ? `…and ${arr.length - 25} more` : '';\nreturn [{ json: { text: [header, '', ...lines, footer].filter(Boolean).join('\\n') } }];"
+        },
+        "id": "5",
+        "name": "Format Alert Message",
+        "type": "n8n-nodes-base.function",
+        "typeVersion": 1,
+        "position": [1190, 200]
+      },
+      {
+        "parameters": {
+          "channel": "#inventory-alerts",
+          "text": "={{$json.text}}"
+        },
+        "id": "6",
+        "name": "Send Inventory Alert",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 1,
+        "position": [1420, 200],
+        "credentials": {
+          "slackApi": "Your Slack API"
+        }
+      }
+    ],
+    "connections": {
+      "Daily Inventory Check": {
+        "main": [
+          [
+            {
+              "node": "Get All Products",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get All Products": {
+        "main": [
+          [
+            {
+              "node": "Filter Low Stock Items",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Filter Low Stock Items": {
+        "main": [
+          [
+            {
+              "node": "Check if Alerts Needed",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check if Alerts Needed": {
+        "main": [
+          [
+            {
+              "node": "Format Alert Message",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          []
+        ]
+      },
+      "Format Alert Message": {
+        "main": [
+          [
+            {
+              "node": "Send Inventory Alert",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    }
+  }
+  
