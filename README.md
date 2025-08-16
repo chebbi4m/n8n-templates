@@ -81,7 +81,7 @@ Automatically tags VIP customers (LTV ≥ $500) and sends exclusive product drop
 
 Need help with these automations or want something custom built? Open an [Issue](https://github.com/chebbi4m/n8n-templates/issues) or reach out directly:
 
-- **Email:** [YOUR_EMAIL]
+- **Email:** [chebbim4@gmail.com]
 - **LinkedIn:** [Mohamed Chebbi](https://www.linkedin.com/in/mohamed-chebbi-694685156/)
 - **Portfolio:** [portfolio2-0-nymh.onrender.com](https://portfolio2-0-nymh.onrender.com)
 
