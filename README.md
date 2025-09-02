@@ -1,4 +1,4 @@
-# Shopify + AI Automations (n8n templates)
+# n8n Automation Templates
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -10,6 +10,8 @@ Created and maintained by Mohamed Chebbi (@chebbi4m).
 
 ```
 .
+├── booking/
+│   └── booking_template.json
 └── shopify/
     ├── back_in_stock.json
     ├── high_aov_recovery.json
@@ -17,55 +19,65 @@ Created and maintained by Mohamed Chebbi (@chebbi4m).
     └── vip_tagging_and_drops.json
 ```
 
-More automation folders (beyond Shopify) will be added over time.
+This repository contains ready-to-use n8n workflow templates for various business automation needs. Each folder contains specialized workflows for different platforms and use cases.
 
 ## What's Inside
 
-### **Back-in-Stock / Daily Inventory Alert**
-Automatically notifies customers when out-of-stock items become available and sends daily inventory reports to your team.
-**Trigger:** Daily at 9 AM / Product inventory changes
-**Stack:** Shopify + n8n + Slack/Klaviyo
-**Metrics to watch:** Back-in-stock conversion rate, inventory turnover, customer satisfaction
+### **Booking Automation**
+Multi-channel booking system that captures reservations from website, phone, WhatsApp, Messenger, Instagram, and email, then processes them with AI and stores them in Google Sheets.
 
-### **High-AOV Recovery (Concierge)**
-Identifies high-value customers with abandoned carts and provides personalized recovery sequences with concierge-level service.
-**Trigger:** Cart abandonment (AOV ≥ $150)
-**Stack:** Shopify + n8n + Klaviyo + Slack
-**Metrics to watch:** Recovery rate, AOV, customer lifetime value
+### **Shopify E-commerce Automations**
+- **Back-in-Stock / Daily Inventory Alert** - Automated inventory monitoring and alerts
+- **High-AOV Recovery (Concierge)** - Personalized cart abandonment recovery for high-value customers
+- **Dynamic Collection Sorting** - Auto-optimize product collections based on performance
+- **VIP Tagging & Drops** - Automatic VIP customer identification and exclusive notifications
 
-### **Dynamic Collection Sorting**
-Automatically reorders product collections based on performance metrics, ensuring your best products are always featured first.
-**Trigger:** Weekly / Performance threshold changes
-**Stack:** Shopify + n8n
-**Metrics to watch:** Collection conversion rates, product performance, revenue per collection
+## How to Use
 
-### **VIP Tagging & Drops**
-Automatically tags VIP customers (LTV ≥ $500) and sends exclusive product drops and early access notifications.
-**Trigger:** Customer purchase / LTV threshold reached
-**Stack:** Shopify + n8n + Klaviyo + Slack
-**Metrics to watch:** VIP retention, exclusive drop conversion, customer LTV growth
+### Step 1: Import Workflow
+1. Open your n8n instance (self-hosted or cloud)
+2. Navigate to **Workflows** → **Import from file**
+3. Select the JSON file from the appropriate folder
+4. The workflow will be imported with all nodes and connections
+
+### Step 2: Configure Credentials
+Each workflow requires specific API credentials. Configure them in n8n:
+
+1. **Go to Settings** → **Credentials**
+2. **Add new credentials** for each service used:
+   - **Shopify API** - For e-commerce workflows
+   - **OpenAI API** - For AI-powered features
+   - **Google Sheets API** - For data storage
+   - **Twilio API** - For WhatsApp/SMS messaging
+   - **Slack API** - For notifications
+   - **Gmail API** - For email automation
+   - **Klaviyo API** - For marketing automation
+   - **WhatsApp Business API** - For WhatsApp messaging
+
+### Step 3: Update Configuration
+After importing, update these placeholders in the workflow:
+
+- `YOUR_SHOP_DOMAIN` → Your Shopify store domain
+- `YOUR_SHEET_ID` → Your Google Sheets ID
+- `YOUR_KLAVIYO_API_KEY` → Your Klaviyo API key
+- `YOUR_LIST_ID` → Your Klaviyo list ID
+- `YOUR_WHATSAPP_PHONE_NUMBER_ID` → Your WhatsApp Business phone number ID
+- Channel names (Slack channels, etc.)
+- Threshold values (AOV amounts, VIP limits, etc.)
+
+### Step 4: Test and Activate
+1. **Test the workflow** with a small batch first
+2. **Check all connections** and data flow
+3. **Activate the workflow** when ready
+4. **Monitor execution** and adjust as needed
 
 ## Requirements
 
 - **n8n** (self-hosted or cloud)
-- **Shopify Admin API** credentials
-- **Optional integrations** used by specific flows:
-  - Slack (notifications)
-  - Twilio (WhatsApp messaging)
-  - Gmail (email automation)
-  - Klaviyo (marketing automation)
+- **API credentials** for the services used in each workflow
+- **Proper permissions** for all integrated services
 
 > **Note:** Always respect messaging consent and opt-in requirements for your customers.
-
-## Quick Start
-
-### Import & Configure
-
-1. **Import workflow:** Go to `Workflows → Import from file` and choose a JSON from `shopify/`
-2. **Set credentials:** Configure all nodes (Shopify, Slack, Twilio/Gmail, Klaviyo)
-3. **Edit placeholders:** Update `YOUR_SHOP_DOMAIN`, `YOUR_KLAVIYO_API_KEY`, `YOUR_LIST_ID`, WhatsApp from, Slack channel
-4. **Adjust thresholds:** Modify AOV ($150) and VIP ($500) thresholds in IF/Function/Set nodes
-5. **Activate:** Turn on the workflow and test with a small batch
 
 ## Roadmap
 

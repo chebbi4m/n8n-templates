@@ -1,0 +1,274 @@
+{
+    "name": "AI Booking Automation - MultiChannel Clean",
+    "nodes": [
+      {
+        "parameters": {
+          "path": "booking-web",
+          "method": "POST"
+        },
+        "id": "1",
+        "name": "Website Booking (Webhook)",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 1,
+        "position": [200, 200]
+      },
+      {
+        "parameters": {
+          "event": "incomingCall"
+        },
+        "id": "2",
+        "name": "Phone Booking (Twilio Voice)",
+        "type": "n8n-nodes-base.twilioTrigger",
+        "typeVersion": 1,
+        "position": [200, 400],
+        "credentials": {
+          "twilioApi": "YOUR_TWILIO_API"
+        }
+      },
+      {
+        "parameters": {
+          "event": "incomingMessage",
+          "channel": "whatsapp"
+        },
+        "id": "3",
+        "name": "WhatsApp Booking (Twilio)",
+        "type": "n8n-nodes-base.twilioTrigger",
+        "typeVersion": 1,
+        "position": [200, 600],
+        "credentials": {
+          "twilioApi": "YOUR_TWILIO_API"
+        }
+      },
+      {
+        "parameters": {
+          "path": "booking-messenger",
+          "method": "POST"
+        },
+        "id": "4",
+        "name": "Messenger Booking (Webhook)",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 1,
+        "position": [200, 800]
+      },
+      {
+        "parameters": {
+          "path": "booking-instagram",
+          "method": "POST"
+        },
+        "id": "5",
+        "name": "Instagram Booking (Webhook)",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 1,
+        "position": [200, 1000]
+      },
+      {
+        "parameters": {
+          "path": "booking-email",
+          "method": "POST"
+        },
+        "id": "6",
+        "name": "Email Booking (Webhook)",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 1,
+        "position": [200, 1200]
+      },
+      {
+        "parameters": {
+          "operation": "chat",
+          "model": "gpt-3.5-turbo",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Extract booking details (name, date, time, guests, channel) from the user request. Return JSON only."
+            },
+            {
+              "role": "user",
+              "content": "={{$json[\"body\"] || $json[\"text\"] || $json[\"subject\"]}}"
+            }
+          ]
+        },
+        "id": "7",
+        "name": "OpenAI Parse Booking",
+        "type": "n8n-nodes-base.openAi",
+        "typeVersion": 1,
+        "position": [500, 600],
+        "credentials": {
+          "openAiApi": "YOUR_OPENAI_API"
+        }
+      },
+      {
+        "parameters": {
+          "operation": "append",
+          "sheetId": "YOUR_SHEET_ID",
+          "range": "Bookings!A:E",
+          "data": "={{[ $json[\"name\"], $json[\"date\"], $json[\"time\"], $json[\"guests\"], $json[\"channel\"] ]}}"
+        },
+        "id": "8",
+        "name": "Save to Google Sheets",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 3,
+        "position": [800, 600],
+        "credentials": {
+          "googleApi": "YOUR_GOOGLE_SHEETS_API"
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "string": [
+              {
+                "value1": "={{$json[\"channel\"]}}",
+                "operation": "equal",
+                "value2": "whatsapp"
+              },
+              {
+                "value1": "={{$json[\"channel\"]}}",
+                "operation": "equal",
+                "value2": "messenger"
+              },
+              {
+                "value1": "={{$json[\"channel\"]}}",
+                "operation": "equal",
+                "value2": "instagram"
+              },
+              {
+                "value1": "={{$json[\"channel\"]}}",
+                "operation": "equal",
+                "value2": "phone"
+              },
+              {
+                "value1": "={{$json[\"channel\"]}}",
+                "operation": "equal",
+                "value2": "email"
+              },
+              {
+                "value1": "={{$json[\"channel\"]}}",
+                "operation": "equal",
+                "value2": "sms"
+              }
+            ]
+          }
+        },
+        "id": "9",
+        "name": "Route by Channel",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 1,
+        "position": [1050, 600]
+      },
+      {
+        "parameters": {
+          "operation": "chat",
+          "model": "gpt-3.5-turbo",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Write a friendly booking confirmation for a restaurant reservation. Use {{name}}, {{date}}, {{time}}, and {{guests}}."
+            }
+          ]
+        },
+        "id": "10",
+        "name": "OpenAI Generate Confirmation",
+        "type": "n8n-nodes-base.openAi",
+        "typeVersion": 1,
+        "position": [1300, 600],
+        "credentials": {
+          "openAiApi": "YOUR_OPENAI_API"
+        }
+      },
+      {
+        "parameters": {
+          "amount": 24,
+          "unit": "hours"
+        },
+        "id": "11",
+        "name": "Wait Until Reminder",
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1,
+        "position": [1550, 450]
+      },
+      {
+        "parameters": {
+          "operation": "chat",
+          "model": "gpt-3.5-turbo",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Write a short reminder message for {{name}} about their booking on {{date}} at {{time}}."
+            }
+          ]
+        },
+        "id": "12",
+        "name": "OpenAI Generate Reminder",
+        "type": "n8n-nodes-base.openAi",
+        "typeVersion": 1,
+        "position": [1800, 450],
+        "credentials": {
+          "openAiApi": "YOUR_OPENAI_API"
+        }
+      },
+      {
+        "parameters": {
+          "amount": 24,
+          "unit": "hours"
+        },
+        "id": "13",
+        "name": "Wait Until Follow-Up",
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1,
+        "position": [1550, 750]
+      },
+      {
+        "parameters": {
+          "operation": "chat",
+          "model": "gpt-3.5-turbo",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Write a thank-you follow-up for {{name}} after dining on {{date}} at {{time}}. Offer them a free dessert if they rebook."
+            }
+          ]
+        },
+        "id": "14",
+        "name": "OpenAI Generate Follow-Up",
+        "type": "n8n-nodes-base.openAi",
+        "typeVersion": 1,
+        "position": [1800, 750],
+        "credentials": {
+          "openAiApi": "YOUR_OPENAI_API"
+        }
+      },
+      {
+        "parameters": {
+          "path": "rebook",
+          "method": "POST"
+        },
+        "id": "15",
+        "name": "Rebooking (Webhook)",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 1,
+        "position": [2100, 600]
+      }
+    ],
+    "connections": {
+      "Website Booking (Webhook)": { "main": [[{ "node": "OpenAI Parse Booking", "type": "main", "index": 0 }]] },
+      "Phone Booking (Twilio Voice)": { "main": [[{ "node": "OpenAI Parse Booking", "type": "main", "index": 0 }]] },
+      "WhatsApp Booking (Twilio)": { "main": [[{ "node": "OpenAI Parse Booking", "type": "main", "index": 0 }]] },
+      "Messenger Booking (Webhook)": { "main": [[{ "node": "OpenAI Parse Booking", "type": "main", "index": 0 }]] },
+      "Instagram Booking (Webhook)": { "main": [[{ "node": "OpenAI Parse Booking", "type": "main", "index": 0 }]] },
+      "Email Booking (Webhook)": { "main": [[{ "node": "OpenAI Parse Booking", "type": "main", "index": 0 }]] },
+      "OpenAI Parse Booking": { "main": [[{ "node": "Save to Google Sheets", "type": "main", "index": 0 }]] },
+      "Save to Google Sheets": { "main": [[{ "node": "Route by Channel", "type": "main", "index": 0 }]] },
+      "Route by Channel": { "main": [[{ "node": "OpenAI Generate Confirmation", "type": "main", "index": 0 }]] },
+      "OpenAI Generate Confirmation": {
+        "main": [
+          [{ "node": "Wait Until Reminder", "type": "main", "index": 0 }],
+          [{ "node": "Wait Until Follow-Up", "type": "main", "index": 0 }]
+        ]
+      },
+      "Wait Until Reminder": { "main": [[{ "node": "OpenAI Generate Reminder", "type": "main", "index": 0 }]] },
+      "Wait Until Follow-Up": { "main": [[{ "node": "OpenAI Generate Follow-Up", "type": "main", "index": 0 }]] },
+      "OpenAI Generate Reminder": { "main": [[{ "node": "Rebooking (Webhook)", "type": "main", "index": 0 }]] },
+      "OpenAI Generate Follow-Up": { "main": [[{ "node": "Rebooking (Webhook)", "type": "main", "index": 0 }]] }
+    }
+  }
+  
