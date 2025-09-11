@@ -1,0 +1,195 @@
+{
+  "name": "AI Newsletter Automation (Final)",
+  "nodes": [
+    {
+      "id": "1",
+      "name": "New Idea (Sheets Trigger)",
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 2,
+      "position": [-1080, -80],
+      "parameters": {
+        "triggerOn": "rowAdded",
+        "sheetId": "GOOGLE_SHEETS_SPREADSHEET_ID_NEWSLETTER",
+        "range": "Ideas!A:Z",
+        "key": "topic"
+      }
+    },
+    {
+      "id": "2",
+      "name": "Normalize Options",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [-840, -80],
+      "parameters": {
+        "keepOnlySet": false,
+        "values": {}
+      }
+    },
+    {
+      "id": "3",
+      "name": "Draft Newsletter",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 3,
+      "position": [-600, -80],
+      "parameters": {
+        "operation": "chat",
+        "model": "gpt-4o-mini"
+      }
+    },
+    {
+      "id": "4",
+      "name": "IF Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-360, -80],
+      "parameters": {
+        "conditions": { "string": [] }
+      }
+    },
+    {
+      "id": "5",
+      "name": "Generate Image",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 3,
+      "position": [-120, -200],
+      "parameters": {
+        "operation": "image"
+      }
+    },
+    {
+      "id": "6",
+      "name": "Set Image URL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [120, -200],
+      "parameters": {
+        "keepOnlySet": false,
+        "values": {}
+      }
+    },
+    {
+      "id": "7",
+      "name": "Compose HTML",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [-120, 40],
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {}
+      }
+    },
+    {
+      "id": "8",
+      "name": "Load Recipients",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [120, 40],
+      "parameters": {
+        "operation": "read",
+        "sheetId": "GOOGLE_SHEETS_SPREADSHEET_ID_RECIPIENTS",
+        "range": "Recipients!A:A"
+      }
+    },
+    {
+      "id": "9",
+      "name": "Send Email (SendGrid)",
+      "type": "n8n-nodes-base.sendGrid",
+      "typeVersion": 2,
+      "position": [360, 40],
+      "parameters": {}
+    },
+    {
+      "id": "10",
+      "name": "IF Repurpose?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-360, 200],
+      "parameters": {
+        "conditions": { "string": [] }
+      }
+    },
+    {
+      "id": "11",
+      "name": "Repurpose Drafts",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 3,
+      "position": [-120, 200],
+      "parameters": {
+        "operation": "chat",
+        "model": "gpt-4o-mini"
+      }
+    },
+    {
+      "id": "12",
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.linkedin",
+      "typeVersion": 1,
+      "position": [120, 120],
+      "parameters": {
+        "resource": "post",
+        "operation": "create"
+      }
+    },
+    {
+      "id": "13",
+      "name": "Post to Twitter",
+      "type": "n8n-nodes-base.twitter",
+      "typeVersion": 2,
+      "position": [120, 280],
+      "parameters": {
+        "operation": "tweet"
+      }
+    },
+    {
+      "id": "14",
+      "name": "Save to Notion",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [360, 200],
+      "parameters": {
+        "resource": "page",
+        "operation": "create"
+      }
+    },
+    {
+      "id": "15",
+      "name": "Slack Notify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [600, 200],
+      "parameters": {
+        "url": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
+        "method": "POST"
+      }
+    }
+  ],
+  "connections": {
+    "New Idea (Sheets Trigger)": { "main": [[{ "node": "Normalize Options", "type": "main", "index": 0 }]] },
+    "Normalize Options": { "main": [[{ "node": "Draft Newsletter", "type": "main", "index": 0 }]] },
+    "Draft Newsletter": {
+      "main": [
+        [{ "node": "IF Image?", "type": "main", "index": 0 }],
+        [{ "node": "IF Repurpose?", "type": "main", "index": 0 }]
+      ]
+    },
+    "IF Image?": {
+      "main": [
+        [{ "node": "Compose HTML", "type": "main", "index": 0 }],
+        [{ "node": "Generate Image", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generate Image": { "main": [[{ "node": "Set Image URL", "type": "main", "index": 0 }]] },
+    "Set Image URL": { "main": [[{ "node": "Compose HTML", "type": "main", "index": 0 }]] },
+    "Compose HTML": { "main": [[{ "node": "Load Recipients", "type": "main", "index": 0 }]] },
+    "Load Recipients": { "main": [[{ "node": "Send Email (SendGrid)", "type": "main", "index": 0 }]] },
+    "IF Repurpose?": { "main": [[{ "node": "Repurpose Drafts", "type": "main", "index": 0 }], []] },
+    "Repurpose Drafts": {
+      "main": [
+        [{ "node": "Post to LinkedIn", "type": "main", "index": 0 }],
+        [{ "node": "Post to Twitter", "type": "main", "index": 0 }],
+        [{ "node": "Save to Notion", "type": "main", "index": 0 }]
+      ]
+    },
+    "Save to Notion": { "main": [[{ "node": "Slack Notify", "type": "main", "index": 0 }]] }
+  }
+}
